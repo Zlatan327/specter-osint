@@ -1,0 +1,92 @@
+[
+  {
+    "name": "GitHub",
+    "url": "https://github.com/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Nairaland",
+    "url": "https://www.nairaland.com/{}",
+    "check_type": "body_exclude",
+    "exclude_text": "He/she is not registered"
+  },
+  {
+    "name": "Dev.to",
+    "url": "https://dev.to/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Keybase",
+    "url": "https://keybase.io/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "GitLab",
+    "url": "https://gitlab.com/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Behance",
+    "url": "https://www.behance.net/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Dribbble",
+    "url": "https://dribbble.com/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Medium",
+    "url": "https://medium.com/@{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Pinterest",
+    "url": "https://www.pinterest.com/{}/",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Twitch",
+    "url": "https://www.twitch.tv/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Reddit",
+    "url": "https://www.reddit.com/user/{}/about.json",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "SoundCloud",
+    "url": "https://soundcloud.com/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Steam",
+    "url": "https://steamcommunity.com/id/{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "ProductHunt",
+    "url": "https://www.producthunt.com/@{}",
+    "check_type": "status",
+    "error_code": 404
+  },
+  {
+    "name": "Disqus",
+    "url": "https://disqus.com/by/{}/",
+    "check_type": "status",
+    "error_code": 404
+  }
+]
