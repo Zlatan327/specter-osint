@@ -17,6 +17,15 @@ const module_def = {
       checked: 0,
     };
 
+    // Safely skip check if query contains spaces (not a valid username format)
+    if (username.includes(' ')) {
+      return {
+        ...results,
+        skipped: true,
+        message: 'Username checker skipped: usernames cannot contain spaces.'
+      };
+    }
+
     const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
     const checkPlatform = async (p) => {
