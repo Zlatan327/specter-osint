@@ -21,7 +21,8 @@ function makeField(value, source, confidence = 0.5) {
 
 function deduplicateFields(fields) {
   const seen = new Map();
-  for (const field of fields) {
+  for (const field of fields || []) {
+    if (!field || field.value === undefined) continue;
     const key = typeof field.value === 'string' ? field.value.toLowerCase().trim() : JSON.stringify(field.value);
     if (!seen.has(key)) {
       seen.set(key, field);
@@ -75,7 +76,7 @@ function extractIdentityFromCallerId(data, moduleName) {
   }
   if (data?.possibleNames) {
     for (const name of data.possibleNames) {
-      identity.names.push(makeField(name, moduleName, conf * 0.6));
+      if (name) identity.names.push(makeField(name, moduleName, conf * 0.6));
     }
   }
   return identity;
@@ -83,18 +84,20 @@ function extractIdentityFromCallerId(data, moduleName) {
 
 function buildAccounts(moduleResults) {
   const accounts = [];
-  for (const result of moduleResults) {
-    if (result.module === 'username-checker' && result.status === 'success' && result.data?.found) {
+  for (const result of moduleResults || []) {
+    if (result && result.module === 'username-checker' && result.status === 'success' && result.data?.found) {
       for (const acct of result.data.found) {
-        accounts.push({
-          platform: acct.platform,
-          username: acct.username || null,
-          url: acct.url,
-          found: true,
-          profileData: acct.profileData || null,
-          category: acct.category,
-          region: acct.region,
-        });
+        if (acct) {
+          accounts.push({
+            platform: acct.platform,
+            username: acct.username || null,
+            url: acct.url,
+            found: true,
+            profileData: acct.profileData || null,
+            category: acct.category,
+            region: acct.region,
+          });
+        }
       }
     }
   }
@@ -103,16 +106,18 @@ function buildAccounts(moduleResults) {
 
 function buildBreaches(moduleResults) {
   const breaches = [];
-  for (const result of moduleResults) {
-    if (result.module === 'breach-checker' && result.status === 'success' && result.data?.breaches) {
+  for (const result of moduleResults || []) {
+    if (result && result.module === 'breach-checker' && result.status === 'success' && result.data?.breaches) {
       for (const breach of result.data.breaches) {
-        breaches.push({
-          name: breach.name || breach.Name,
-          date: breach.date || breach.BreachDate,
-          dataTypes: breach.dataTypes || breach.DataClasses || [],
-          description: breach.description || breach.Description || '',
-          pwnCount: breach.pwnCount || breach.PwnCount || 0,
-        });
+        if (breach) {
+          breaches.push({
+            name: breach.name || breach.Name,
+            date: breach.date || breach.BreachDate,
+            dataTypes: breach.dataTypes || breach.DataClasses || [],
+            description: breach.description || breach.Description || '',
+            pwnCount: breach.pwnCount || breach.PwnCount || 0,
+          });
+        }
       }
     }
   }
@@ -121,8 +126,8 @@ function buildBreaches(moduleResults) {
 
 function buildDomains(moduleResults) {
   const domains = [];
-  for (const result of moduleResults) {
-    if (result.module === 'domain-intel' && result.status === 'success' && result.data) {
+  for (const result of moduleResults || []) {
+    if (result && result.module === 'domain-intel' && result.status === 'success' && result.data) {
       const d = result.data;
       domains.push({
         domain: d.domain,
@@ -139,16 +144,18 @@ function buildDomains(moduleResults) {
 
 function buildDorks(moduleResults) {
   const dorks = [];
-  for (const result of moduleResults) {
-    if (result.module === 'google-dorker' && result.status === 'success' && result.data?.dorks) {
+  for (const result of moduleResults || []) {
+    if (result && result.module === 'google-dorker' && result.status === 'success' && result.data?.dorks) {
       for (const dork of result.data.dorks) {
-        dorks.push({
-          category: dork.category,
-          label: dork.label,
-          query: dork.query,
-          url: dork.url,
-          description: dork.description,
-        });
+        if (dork) {
+          dorks.push({
+            category: dork.category,
+            label: dork.label,
+            query: dork.query,
+            url: dork.url,
+            description: dork.description,
+          });
+        }
       }
     }
   }
@@ -157,8 +164,8 @@ function buildDorks(moduleResults) {
 
 function buildFinancialTrails(moduleResults) {
   const trails = [];
-  for (const result of moduleResults) {
-    if (result.module === 'financial-trail' && result.status === 'success' && result.data) {
+  for (const result of moduleResults || []) {
+    if (result && result.module === 'financial-trail' && result.status === 'success' && result.data) {
       trails.push(result.data);
     }
   }
@@ -167,8 +174,8 @@ function buildFinancialTrails(moduleResults) {
 
 function buildCallerIdResults(moduleResults) {
   const callerIdData = [];
-  for (const result of moduleResults) {
-    if (result.module === 'caller-id' && result.status === 'success' && result.data) {
+  for (const result of moduleResults || []) {
+    if (result && result.module === 'caller-id' && result.status === 'success' && result.data) {
       callerIdData.push(result.data);
     }
   }
@@ -177,7 +184,8 @@ function buildCallerIdResults(moduleResults) {
 
 function buildTimeline(moduleResults) {
   const events = [];
-  for (const result of moduleResults) {
+  for (const result of moduleResults || []) {
+    if (!result) continue;
     if (result.module === 'github-profiler' && result.status === 'success' && result.data?.profile) {
       const p = result.data.profile;
       if (p.created_at) {
@@ -185,7 +193,7 @@ function buildTimeline(moduleResults) {
       }
       if (result.data.repos) {
         for (const repo of result.data.repos) {
-          if (repo.created_at) {
+          if (repo && repo.created_at) {
             events.push({ date: repo.created_at, event: `Created repository: ${repo.name}`, source: 'github-profiler', icon: 'code' });
           }
         }
@@ -196,6 +204,7 @@ function buildTimeline(moduleResults) {
     }
     if (result.module === 'breach-checker' && result.status === 'success' && result.data?.breaches) {
       for (const breach of result.data.breaches) {
+        if (!breach) continue;
         const date = breach.date || breach.BreachDate;
         if (date) {
           events.push({ date, event: `Appeared in ${breach.name || breach.Name} data breach`, source: 'breach-checker', icon: 'alert' });
@@ -208,7 +217,8 @@ function buildTimeline(moduleResults) {
 }
 
 function aggregate(query, type, moduleResults) {
-  const successResults = moduleResults.filter((r) => r.status === 'success');
+  const list = moduleResults || [];
+  const successResults = list.filter((r) => r && r.status === 'success');
   const identitySources = [];
   for (const result of successResults) {
     switch (result.module) {
@@ -220,34 +230,36 @@ function aggregate(query, type, moduleResults) {
   }
 
   const identity = {
-    names: deduplicateFields(identitySources.flatMap((s) => s.names)),
-    emails: deduplicateFields(identitySources.flatMap((s) => s.emails)),
-    phones: deduplicateFields(identitySources.flatMap((s) => s.phones)),
-    locations: deduplicateFields(identitySources.flatMap((s) => s.locations)),
-    avatars: deduplicateFields(identitySources.flatMap((s) => s.avatars)),
-    bios: deduplicateFields(identitySources.flatMap((s) => s.bios)),
+    names: deduplicateFields(identitySources.flatMap((s) => s.names || [])),
+    emails: deduplicateFields(identitySources.flatMap((s) => s.emails || [])),
+    phones: deduplicateFields(identitySources.flatMap((s) => s.phones || [])),
+    locations: deduplicateFields(identitySources.flatMap((s) => s.locations || [])),
+    avatars: deduplicateFields(identitySources.flatMap((s) => s.avatars || [])),
+    bios: deduplicateFields(identitySources.flatMap((s) => s.bios || [])),
   };
 
   const totalFindings =
     identity.names.length + identity.emails.length + identity.phones.length +
-    identity.locations.length + buildAccounts(moduleResults).length +
-    buildBreaches(moduleResults).length + buildDorks(moduleResults).length;
+    identity.locations.length + buildAccounts(list).length +
+    buildBreaches(list).length + buildDorks(list).length;
 
   const raw = {};
-  for (const result of moduleResults) {
-    raw[result.module] = { status: result.status, data: result.data, error: result.error, duration: result.duration };
+  for (const result of list) {
+    if (result && result.module) {
+      raw[result.module] = { status: result.status, data: result.data, error: result.error, duration: result.duration };
+    }
   }
 
   return {
-    meta: { query, type, timestamp: new Date().toISOString(), modulesRun: moduleResults.length, modulesSucceeded: successResults.length, totalFindings },
+    meta: { query, type, timestamp: new Date().toISOString(), modulesRun: list.length, modulesSucceeded: successResults.length, totalFindings },
     identity,
-    accounts: buildAccounts(moduleResults),
-    breaches: buildBreaches(moduleResults),
-    domains: buildDomains(moduleResults),
-    dorks: buildDorks(moduleResults),
-    callerIdResults: buildCallerIdResults(moduleResults),
-    financialTrails: buildFinancialTrails(moduleResults),
-    timeline: buildTimeline(moduleResults),
+    accounts: buildAccounts(list),
+    breaches: buildBreaches(list),
+    domains: buildDomains(list),
+    dorks: buildDorks(list),
+    callerIdResults: buildCallerIdResults(list),
+    financialTrails: buildFinancialTrails(list),
+    timeline: buildTimeline(list),
     raw,
   };
 }

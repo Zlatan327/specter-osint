@@ -27,10 +27,11 @@ const SOURCE_WEIGHT = {
  * Calculate enhanced confidence for a field based on corroboration across sources.
  */
 function calculateConfidence(field, allFieldsOfType) {
-  let baseConfidence = field.confidence;
+  if (!field) return 0.5;
+  let baseConfidence = field.confidence || 0.5;
 
   // Boost if from a verified source
-  if (VERIFIED_SOURCES.has(field.source)) {
+  if (field.source && VERIFIED_SOURCES.has(field.source)) {
     baseConfidence = Math.min(1.0, baseConfidence * 1.15);
   }
 
@@ -38,7 +39,8 @@ function calculateConfidence(field, allFieldsOfType) {
   const normalizedValue = typeof field.value === 'string' ? field.value.toLowerCase().trim() : JSON.stringify(field.value);
   const corroboratingSources = new Set();
 
-  for (const other of allFieldsOfType) {
+  for (const other of allFieldsOfType || []) {
+    if (!other) continue;
     const otherValue = typeof other.value === 'string' ? other.value.toLowerCase().trim() : JSON.stringify(other.value);
     if (otherValue === normalizedValue && other.source !== field.source) {
       corroboratingSources.add(other.source);
@@ -50,7 +52,7 @@ function calculateConfidence(field, allFieldsOfType) {
   baseConfidence = Math.min(1.0, baseConfidence + corroborationBoost);
 
   // Single unverified source penalty
-  if (corroboratingSources.size === 0 && !VERIFIED_SOURCES.has(field.source)) {
+  if (corroboratingSources.size === 0 && field.source && !VERIFIED_SOURCES.has(field.source)) {
     baseConfidence *= 0.8;
   }
 
@@ -62,84 +64,104 @@ function calculateConfidence(field, allFieldsOfType) {
  */
 function buildRelationships(profile) {
   const edges = [];
-  const query = profile.meta.query;
+  const query = profile?.meta?.query || '';
+  if (!query) return edges;
+
+  const names = profile?.identity?.names || [];
+  const emails = profile?.identity?.emails || [];
+  const phones = profile?.identity?.phones || [];
+  const accounts = profile?.accounts || [];
+  const breaches = profile?.breaches || [];
+  const domains = profile?.domains || [];
 
   // Link query to found identities
-  for (const name of profile.identity.names) {
-    edges.push({
-      from: query,
-      to: name.value,
-      type: 'identified_as',
-      confidence: name.confidence,
-      source: name.source,
-    });
-  }
-
-  for (const email of profile.identity.emails) {
-    edges.push({
-      from: query,
-      to: email.value,
-      type: 'uses_email',
-      confidence: email.confidence,
-      source: email.source,
-    });
-  }
-
-  for (const phone of profile.identity.phones) {
-    edges.push({
-      from: query,
-      to: phone.value,
-      type: 'uses_phone',
-      confidence: phone.confidence,
-      source: phone.source,
-    });
-  }
-
-  // Link accounts to query
-  for (const account of profile.accounts) {
-    edges.push({
-      from: query,
-      to: account.url,
-      type: 'has_account',
-      confidence: 0.85,
-      source: 'username-checker',
-      platform: account.platform,
-    });
-  }
-
-  // Link breaches to emails
-  for (const breach of profile.breaches) {
-    for (const email of profile.identity.emails) {
+  for (const name of names) {
+    if (name?.value) {
       edges.push({
-        from: email.value,
-        to: breach.name,
-        type: 'breached_in',
-        confidence: 0.9,
-        source: 'breach-checker',
+        from: query,
+        to: name.value,
+        type: 'identified_as',
+        confidence: name.confidence || 0.5,
+        source: name.source || 'unknown',
       });
     }
   }
 
+  for (const email of emails) {
+    if (email?.value) {
+      edges.push({
+        from: query,
+        to: email.value,
+        type: 'uses_email',
+        confidence: email.confidence || 0.5,
+        source: email.source || 'unknown',
+      });
+    }
+  }
+
+  for (const phone of phones) {
+    if (phone?.value) {
+      edges.push({
+        from: query,
+        to: phone.value,
+        type: 'uses_phone',
+        confidence: phone.confidence || 0.5,
+        source: phone.source || 'unknown',
+      });
+    }
+  }
+
+  // Link accounts to query
+  for (const account of accounts) {
+    if (account?.url) {
+      edges.push({
+        from: query,
+        to: account.url,
+        type: 'has_account',
+        confidence: 0.85,
+        source: 'username-checker',
+        platform: account.platform || 'unknown',
+      });
+    }
+  }
+
+  // Link breaches to emails
+  for (const breach of breaches) {
+    for (const email of emails) {
+      if (email?.value && breach?.name) {
+        edges.push({
+          from: email.value,
+          to: breach.name,
+          type: 'breached_in',
+          confidence: 0.9,
+          source: 'breach-checker',
+        });
+      }
+    }
+  }
+
   // Link domains to query
-  for (const domain of profile.domains) {
-    edges.push({
-      from: query,
-      to: domain.domain,
-      type: 'owns_domain',
-      confidence: 0.8,
-      source: 'domain-intel',
-    });
+  for (const domain of domains) {
+    if (domain?.domain) {
+      edges.push({
+        from: query,
+        to: domain.domain,
+        type: 'owns_domain',
+        confidence: 0.8,
+        source: 'domain-intel',
+      });
+    }
   }
 
   // Cross-link names to emails if both exist
-  for (const name of profile.identity.names) {
-    for (const email of profile.identity.emails) {
-      if (name.source !== email.source) {
+  for (const name of names) {
+    for (const email of emails) {
+      if (name?.value && email?.value && name.source !== email.source) {
         edges.push({
           from: name.value,
           to: email.value,
           type: 'associated_with',
-          confidence: Math.min(name.confidence, email.confidence) * 0.9,
+          confidence: Math.min(name.confidence || 0.5, email.confidence || 0.5) * 0.9,
           source: 'cross-reference',
         });
       }
@@ -147,14 +169,14 @@ function buildRelationships(profile) {
   }
 
   // Link phones to names from caller-id
-  for (const phone of profile.identity.phones) {
-    for (const name of profile.identity.names) {
-      if (name.source === 'caller-id') {
+  for (const phone of phones) {
+    for (const name of names) {
+      if (phone?.value && name?.value && name.source === 'caller-id') {
         edges.push({
           from: phone.value,
           to: name.value,
           type: 'registered_to',
-          confidence: name.confidence,
+          confidence: name.confidence || 0.5,
           source: 'caller-id',
         });
       }
@@ -162,17 +184,19 @@ function buildRelationships(profile) {
   }
 
   // Link financial trails to phones
-  if (profile.financialTrails) {
+  if (profile?.financialTrails) {
     for (const trail of profile.financialTrails) {
-      if (trail.fintechLinks) {
+      if (trail?.fintechLinks) {
         for (const link of trail.fintechLinks) {
-          edges.push({
-            from: query,
-            to: link.platform,
-            type: 'possible_financial_account',
-            confidence: 0.5,
-            source: 'financial-trail',
-          });
+          if (link?.platform) {
+            edges.push({
+              from: query,
+              to: link.platform,
+              type: 'possible_financial_account',
+              confidence: 0.5,
+              source: 'financial-trail',
+            });
+          }
         }
       }
     }
@@ -193,29 +217,38 @@ function buildRelationships(profile) {
  */
 function calculateOverallScore(profile) {
   let score = 0;
+  if (!profile) return score;
+
+  const names = profile?.identity?.names || [];
+  const emails = profile?.identity?.emails || [];
+  const phones = profile?.identity?.phones || [];
+  const locations = profile?.identity?.locations || [];
+  const accounts = profile?.accounts || [];
+  const breaches = profile?.breaches || [];
+  const domains = profile?.domains || [];
 
   // More identity data = higher score
-  score += profile.identity.names.length * 10;
-  score += profile.identity.emails.length * 10;
-  score += profile.identity.phones.length * 10;
-  score += profile.identity.locations.length * 5;
+  score += names.length * 10;
+  score += emails.length * 10;
+  score += phones.length * 10;
+  score += locations.length * 5;
 
   // Accounts found
-  score += profile.accounts.length * 3;
+  score += accounts.length * 3;
 
   // Breaches are significant
-  score += profile.breaches.length * 8;
+  score += breaches.length * 8;
 
   // Domain ownership
-  score += profile.domains.length * 5;
+  score += domains.length * 5;
 
   // Caller ID results
-  if (profile.callerIdResults?.length > 0) {
+  if (profile?.callerIdResults?.length > 0) {
     score += 15;
   }
 
   // Financial trails
-  if (profile.financialTrails?.length > 0) {
+  if (profile?.financialTrails?.length > 0) {
     score += 12;
   }
 
@@ -228,30 +261,32 @@ function calculateOverallScore(profile) {
  * and relationship edges.
  */
 function resolve(profile) {
+  if (!profile) return null;
+
   // Collect all fields for cross-referencing
-  const allNames = [...(profile.identity.names || [])];
-  const allEmails = [...(profile.identity.emails || [])];
-  const allPhones = [...(profile.identity.phones || [])];
-  const allLocations = [...(profile.identity.locations || [])];
+  const allNames = [...(profile?.identity?.names || [])];
+  const allEmails = [...(profile?.identity?.emails || [])];
+  const allPhones = [...(profile?.identity?.phones || [])];
+  const allLocations = [...(profile?.identity?.locations || [])];
 
   // Enhance confidence scores based on corroboration
-  for (const field of profile.identity.names) {
+  for (const field of profile?.identity?.names || []) {
     field.confidence = calculateConfidence(field, allNames);
   }
-  for (const field of profile.identity.emails) {
+  for (const field of profile?.identity?.emails || []) {
     field.confidence = calculateConfidence(field, allEmails);
   }
-  for (const field of profile.identity.phones) {
+  for (const field of profile?.identity?.phones || []) {
     field.confidence = calculateConfidence(field, allPhones);
   }
-  for (const field of profile.identity.locations) {
+  for (const field of profile?.identity?.locations || []) {
     field.confidence = calculateConfidence(field, allLocations);
   }
-  for (const field of profile.identity.avatars || []) {
-    field.confidence = calculateConfidence(field, profile.identity.avatars);
+  for (const field of profile?.identity?.avatars || []) {
+    field.confidence = calculateConfidence(field, profile?.identity?.avatars || []);
   }
-  for (const field of profile.identity.bios || []) {
-    field.confidence = calculateConfidence(field, profile.identity.bios);
+  for (const field of profile?.identity?.bios || []) {
+    field.confidence = calculateConfidence(field, profile?.identity?.bios || []);
   }
 
   // Build relationship graph
@@ -265,7 +300,7 @@ function resolve(profile) {
     relationships,
     overallScore,
     meta: {
-      ...profile.meta,
+      ...profile?.meta,
       resolvedAt: new Date().toISOString(),
     },
   };
